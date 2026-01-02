@@ -1,0 +1,23 @@
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+html {
+
+  overflow-x: hidden;
+  background-color: #09090b;
+}
+
+body {
+  min-height: 100vh;
+  margin: 0;
+  background-color: #09090b;
+
+}
+
+#app {
+  display: flex;
+  flex-direction: column;
+}
