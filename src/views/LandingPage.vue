@@ -21,12 +21,10 @@
 
     <main class="hero-section">
       <div class="container">
-
-
         <div class="hero-content">
 
           <h1 class="hero-title">
-            Video calls for the <br />
+            Video calls for the
             <span class="text-gradient">modern professional</span>
           </h1>
           <p class="hero-subtitle">
@@ -559,21 +557,59 @@ const joinRoom = () => {
 }
 
 @media (max-width: 1024px) {
-  .hero-section {
+  .header {
+    padding: 16px 24px;
+  }
+
+  .container {
     grid-template-columns: 1fr;
+    gap: 48px;
     text-align: center;
   }
 
+  .hero-section {
+    padding: 40px 24px;
+    min-height: auto;
+  }
+
+  .hero-title {
+    font-size: 48px;
+    margin-bottom: 20px;
+  }
+
   .hero-subtitle {
-    margin: 0 auto 40px;
+    margin: 0 auto 32px;
+    font-size: 16px;
   }
 
   .join-form-card {
-    margin: 0 auto 48px;
+    margin: 0 auto;
+    width: 100%;
+    max-width: 400px;
+    text-align: left;
   }
 
-  .stats-row {
-    justify-content: center;
+  .hero-visual {
+    display: none;
+  }
+
+  .hero-title br {
+    display: none;
+  }
+}
+
+@media (max-width: 640px) {
+  .hero-title {
+    font-size: 36px;
+    letter-spacing: -1px;
+  }
+
+  .header {
+    padding: 12px 16px;
+  }
+
+  .join-form-card {
+    padding: 20px;
   }
 }
 </style>
