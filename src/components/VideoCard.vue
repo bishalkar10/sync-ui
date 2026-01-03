@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { type Participant, type Track, Track as LivekitTrack, ParticipantEvent, RoomEvent, createAudioAnalyser, type AudioAnalyserOptions } from 'livekit-client'
-import { ref, onMounted, onUnmounted } from 'vue'
+import { type Participant, type Track, Track as LivekitTrack, ParticipantEvent, RoomEvent, createAudioAnalyser, type AudioAnalyserOptions, TrackPublication } from 'livekit-client'
+import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
 import { useVideoCall } from '@/composables/useVideoCall'
 
-const { localParticipant } = useVideoCall()
+const { localParticipant, isMicrophoneEnabled: isLocalMicrophoneEnabled, isCameraEnabled: isLocalCameraEnabled } = useVideoCall()
 
 const props = defineProps<{
   participant: Participant
@@ -13,9 +13,27 @@ const videoElement = ref<HTMLVideoElement | null>(null)
 const audioElement = ref<HTMLAudioElement | null>(null)
 
 const isSpeaking = ref(false)
-const isCameraEnabled = ref(false)
-const isMicrophoneEnabled = ref(false)
+const remoteIsCameraEnabled = ref(false)
+const remoteIsMicrophoneEnabled = ref(false)
 const audioLevel = ref(0)
+
+const isMine = computed(() => {
+  return props.participant.sid === localParticipant.value?.sid
+})
+
+const isMicrophoneEnabled = computed(() => {
+  if (isMine.value) {
+    return isLocalMicrophoneEnabled.value
+  }
+  return remoteIsMicrophoneEnabled.value
+})
+
+const isCameraEnabled = computed(() => {
+  if (isMine.value) {
+    return isLocalCameraEnabled.value
+  }
+  return remoteIsCameraEnabled.value
+})
 
 let audioAnalyser: { calculateVolume: () => number; cleanup: () => void } | undefined
 let animationFrameId: number
@@ -76,12 +94,12 @@ const handleAttachTrackEvent = (event: Event) => {
 
   if (track.kind === LivekitTrack.Kind.Video) {
     attachTrack(track, videoElement.value)
-    isCameraEnabled.value = true
+    remoteIsCameraEnabled.value = true
   } else if (track.kind === LivekitTrack.Kind.Audio) {
-    if (props.participant.sid !== localParticipant.value?.sid) {
-      attachTrack(track, audioElement.value)
+    if (!previousIsMine.value) { // Only attach audio for remote participants to avoid echo
+       attachTrack(track, audioElement.value)
     }
-    isMicrophoneEnabled.value = true
+    remoteIsMicrophoneEnabled.value = true
     startAudioVisualizer(track)
   }
 }
@@ -94,27 +112,59 @@ const handleDetachTrackEvent = (event: Event) => {
 
   if (track.kind === LivekitTrack.Kind.Video) {
     detachTrack(track, videoElement.value)
-    isCameraEnabled.value = false
+    remoteIsCameraEnabled.value = false
   } else if (track.kind === LivekitTrack.Kind.Audio) {
     detachTrack(track, audioElement.value)
-    isMicrophoneEnabled.value = false
+    remoteIsMicrophoneEnabled.value = false
     stopAudioVisualizer()
   }
 }
 
+const onTrackMuted = (pub: TrackPublication) => {
+  if (pub.kind === LivekitTrack.Kind.Audio) {
+    remoteIsMicrophoneEnabled.value = false
+  } else if (pub.kind === LivekitTrack.Kind.Video) {
+    remoteIsCameraEnabled.value = false
+  }
+}
+
+const onTrackUnmuted = (pub: TrackPublication) => {
+  if (pub.kind === LivekitTrack.Kind.Audio) {
+    remoteIsMicrophoneEnabled.value = true
+  } else if (pub.kind === LivekitTrack.Kind.Video) {
+    remoteIsCameraEnabled.value = true
+  }
+}
+
+const onIsSpeakingChanged = (speaking: boolean) => {
+  isSpeaking.value = speaking
+}
+
 const updateState = () => {
   isSpeaking.value = props.participant.isSpeaking
-  isCameraEnabled.value = props.participant.isCameraEnabled
-  isMicrophoneEnabled.value = props.participant.isMicrophoneEnabled
+  remoteIsCameraEnabled.value = props.participant.isCameraEnabled
+  remoteIsMicrophoneEnabled.value = props.participant.isMicrophoneEnabled
   audioLevel.value = props.participant.audioLevel
 }
 
-onMounted(() => {
+// Needed to avoid echo for local participant - we check this in handleAttach, 
+// but we need it reactive because 'isMine' is computed.
+const previousIsMine = ref(false) 
 
-  updateState()
+onMounted(() => {
+  previousIsMine.value = isMine.value
+  updateState() 
 
   window.addEventListener('livekit-attach-track', handleAttachTrackEvent)
   window.addEventListener('livekit-detach-track', handleDetachTrackEvent)
+  
+  // Listen to participant events directly
+  props.participant
+    .on(ParticipantEvent.TrackMuted, onTrackMuted)
+    .on(ParticipantEvent.TrackUnmuted, onTrackUnmuted)
+    .on(ParticipantEvent.IsSpeakingChanged, onIsSpeakingChanged)
+
+
   props.participant.trackPublications.forEach((pub) => {
     if (pub.track) {
       if (pub.track.kind === LivekitTrack.Kind.Audio) {

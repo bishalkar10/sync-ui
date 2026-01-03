@@ -8,7 +8,7 @@ import {
   RemoteTrack,
   LocalTrackPublication,
 } from 'livekit-client'
-
+import { useToast } from './useToast'
 
 export interface ParticipantInfo {
   participant: Participant
@@ -36,7 +36,6 @@ const isScreenShareEnabled = ref(false)
 
 const participants = shallowRef<Map<string, ParticipantInfo>>(new Map())
 const localParticipant: Ref<LocalParticipant | undefined> = ref(undefined)
-
 
 const Config = {
   TOKEN_URL: import.meta.env.VITE_SERVER_URL,
@@ -75,7 +74,6 @@ export function useVideoCall(): UseVideoCallReturn {
   }
 
   function handleParticipantConnected(participant: Participant) {
-
     if (!participants.value.has(participant.sid)) {
       participants.value.set(participant.sid, {
         participant: participant,
@@ -85,7 +83,6 @@ export function useVideoCall(): UseVideoCallReturn {
   }
 
   function handleParticipantDisconnected(participant: Participant) {
-
     participants.value.delete(participant.sid)
     updateParticipants()
   }
@@ -107,8 +104,6 @@ export function useVideoCall(): UseVideoCallReturn {
     publication: RemoteTrackPublication,
     participant: Participant,
   ) {
-
-
     window.dispatchEvent(
       new CustomEvent('livekit-attach-track', {
         detail: { track, participantSid: participant.sid },
@@ -121,7 +116,6 @@ export function useVideoCall(): UseVideoCallReturn {
     publication: RemoteTrackPublication,
     participant: Participant,
   ) {
-
     window.dispatchEvent(
       new CustomEvent('livekit-detach-track', {
         detail: { track, participantSid: participant.sid },
@@ -130,7 +124,6 @@ export function useVideoCall(): UseVideoCallReturn {
   }
 
   function handleLocalTrackPublished(publication: LocalTrackPublication, participant: Participant) {
-
     if (publication.track) {
       window.dispatchEvent(
         new CustomEvent('livekit-attach-track', {
@@ -144,7 +137,6 @@ export function useVideoCall(): UseVideoCallReturn {
     publication: LocalTrackPublication,
     participant: Participant,
   ) {
-
     if (publication.track) {
       window.dispatchEvent(
         new CustomEvent('livekit-detach-track', {
@@ -155,7 +147,6 @@ export function useVideoCall(): UseVideoCallReturn {
   }
 
   function handleRoomDisconnected() {
-
     isConnected.value = false
     isCameraEnabled.value = false
     isMicrophoneEnabled.value = false
@@ -166,12 +157,11 @@ export function useVideoCall(): UseVideoCallReturn {
   }
 
   async function connectRoom(roomNameInput: string, userNameInput: string) {
-
     if (isConnected.value) {
-
       return
     }
 
+    const { toast } = useToast()
     let token
     try {
       token = await getToken(roomNameInput, userNameInput)
@@ -180,11 +170,10 @@ export function useVideoCall(): UseVideoCallReturn {
         console.error('Failed to get token')
         return
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error fetching token:', error)
       return
     }
-
 
     if (!room) {
       room = new Room({
@@ -198,9 +187,7 @@ export function useVideoCall(): UseVideoCallReturn {
     }
     setupEventListeners()
     try {
-
       await room.connect(Config.LIVEKIT_URL, token)
-
 
       isConnected.value = true
       localParticipant.value = room.localParticipant
@@ -209,10 +196,11 @@ export function useVideoCall(): UseVideoCallReturn {
 
       isMicrophoneEnabled.value = false
       isScreenShareEnabled.value = false
-    } catch (error) {
-      console.error('Failed to connect to room:', error)
+    } catch (err) {
+      console.error('Failed to connect to room:', err)
       isConnected.value = false
       room = undefined
+      toast.error(err instanceof Error ? err.message : 'Failed to connect to room')
     }
   }
 
@@ -227,37 +215,49 @@ export function useVideoCall(): UseVideoCallReturn {
       .on(RoomEvent.LocalTrackPublished, handleLocalTrackPublished)
       .on(RoomEvent.LocalTrackUnpublished, handleLocalTrackUnpublished)
       .on(RoomEvent.Disconnected, handleRoomDisconnected)
-      .on(RoomEvent.Reconnecting, () => { })
-      .on(RoomEvent.Reconnecting, () => { })
-      .on(RoomEvent.Reconnected, () => { })
+      .on(RoomEvent.Reconnecting, () => {})
+      .on(RoomEvent.Reconnecting, () => {})
+      .on(RoomEvent.Reconnected, () => {})
       .on(RoomEvent.ActiveSpeakersChanged, handleActiveSpeakersChanged)
+  }
+
+  function handleError(err: any, action: string) {
+    console.error(`Error ${action}:`, err)
+    const { toast } = useToast()
+    if (err.name === 'NotAllowedError' || err.message?.includes('Permission denied')) {
+      toast.error(
+        `${action} failed: Permission denied. Please enable access in your browser settings (look for the lock icon in the URL bar).`
+      )
+    } else {
+      toast.error(err instanceof Error ? err.message : `${action} failed`)
+    }
   }
 
   async function toggleCamera(enable?: boolean) {
     if (!room || !room.localParticipant) return
     const newState = typeof enable === 'boolean' ? enable : !isCameraEnabled.value
-
+  
     try {
       await room.localParticipant.setCameraEnabled(newState)
       isCameraEnabled.value = newState
-
-    } catch (error) {
-      console.error('Error toggling camera:', error)
+    } catch (err) {
       isCameraEnabled.value = room.localParticipant.isCameraEnabled
+      handleError(err, 'Toggling camera')
     }
   }
 
   async function toggleMic(enable?: boolean) {
+    // console.log("toggle mic")
+    // console.log("microphone enabled", isMicrophoneEnabled.value)
     if (!room || !room.localParticipant) return
     const newState = typeof enable === 'boolean' ? enable : !isMicrophoneEnabled.value
 
     try {
       await room.localParticipant.setMicrophoneEnabled(newState)
       isMicrophoneEnabled.value = newState
-
-    } catch (error) {
-      console.error('Error toggling Mic:', error)
+    } catch (err) {
       isMicrophoneEnabled.value = room.localParticipant.isMicrophoneEnabled
+      handleError(err, 'Toggling microphone')
     }
   }
 
@@ -268,20 +268,24 @@ export function useVideoCall(): UseVideoCallReturn {
     try {
       await room.localParticipant.setScreenShareEnabled(newState)
       isScreenShareEnabled.value = newState
-    } catch (error) {
-      console.error('Error toggling screen share:', error)
+    } catch (err) {
       isScreenShareEnabled.value = room.localParticipant.isScreenShareEnabled
+      // Screen share cancellation is expected, handle others
+      if (err instanceof Error && err.name === 'NotAllowedError') {
+        console.warn('Screen share cancelled or denied:', err)
+      } else {
+        handleError(err, 'Screen share')
+      }
     }
   }
+
+
 
   async function disconnectRoom() {
     if (room) {
-
       await room.disconnect()
-
     }
   }
-
 
   return {
     isConnected,
