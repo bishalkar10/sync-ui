@@ -5,110 +5,96 @@
     <div class="bg-gradient-2"></div>
     <div class="grid-overlay"></div>
 
-    <nav class="navbar">
+    <header class="header">
       <div class="logo">
-        <div class="logo-icon"></div>
-        <span>Premium Connect</span>
+        <svg width="24" height="24" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M21 7L13 12L21 17V7Z" fill="#3b82f6" fill-opacity="0.2" stroke="#3b82f6" stroke-width="2"
+            stroke-linejoin="round" />
+          <circle cx="8" cy="12" r="7" stroke="#3b82f6" stroke-width="2" />
+          <path
+            d="M5 12C5 10.3431 6.34315 9 8 9C9.65685 9 11 10.3431 11 12C11 13.6569 9.65685 15 8 15C6.34315 15 5 13.6569 5 12Z"
+            fill="#3b82f6" />
+        </svg>
+        <span>Sync</span>
       </div>
-
-    </nav>
+    </header>
 
     <main class="hero-section">
-      <div class="hero-content">
-        
-        <h1 class="hero-title">
-          Video calls for the <br />
-          <span class="text-gradient">modern professional</span>
-        </h1>
-        <p class="hero-subtitle">
-          Experience crystal clear audio and video with our premium, secure, and
-          lightning-fast conferencing platform. Designed for teams that demand excellence.
-        </p>
-        
+      <div class="container">
 
-        <div class="join-form-card" id="join-section">
-          <div class="input-group">
-            <label>Display Name</label>
-            <input 
-              type="text" 
-              v-model="userName" 
-              placeholder="Enter your name"
-              @keyup.enter="joinRoom"
-            />
-          </div>
-          <div class="input-group">
-            <label>Room Name</label>
-            <div class="input-with-action">
-              <input 
-                type="text" 
-                v-model="roomName" 
-                placeholder="Enter room name"
-                @keyup.enter="joinRoom"
-              />
-              <button class="action-btn" @click="generateRoomName" title="Generate Random">
-                <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path><path d="M3 3v5h5"></path><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path><path d="M16 16h5v5"></path></svg>
-              </button>
+
+        <div class="hero-content">
+
+          <h1 class="hero-title">
+            Video calls for the <br />
+            <span class="text-gradient">modern professional</span>
+          </h1>
+          <p class="hero-subtitle">
+            Experience crystal clear audio and video with our premium, secure, and
+            lightning-fast conferencing platform. Designed for teams that demand excellence.
+          </p>
+
+
+          <div class="join-form-card" id="join-section">
+            <div class="input-group">
+              <label>Display Name</label>
+              <input type="text" v-model="userName" placeholder="Enter your name" @keyup.enter="joinRoom" />
             </div>
+            <div class="input-group">
+              <label>Room Name</label>
+              <div class="input-with-action">
+                <input type="text" v-model="roomName" placeholder="Enter room name" @keyup.enter="joinRoom" />
+                <button class="action-btn" @click="generateRoomName" title="Generate Random">
+                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none"
+                    stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                    <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"></path>
+                    <path d="M3 3v5h5"></path>
+                    <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"></path>
+                    <path d="M16 16h5v5"></path>
+                  </svg>
+                </button>
+              </div>
+            </div>
+            <button class="btn-primary full-width" @click="joinRoom" :disabled="!userName || !roomName">
+              Start Meeting
+              <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none"
+                stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <line x1="5" y1="12" x2="19" y2="12"></line>
+                <polyline points="12 5 19 12 12 19"></polyline>
+              </svg>
+            </button>
           </div>
-          <button class="btn-primary full-width" @click="joinRoom" :disabled="!userName || !roomName">
-            Start Meeting
-            <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="5" y1="12" x2="19" y2="12"></line><polyline points="12 5 19 12 12 19"></polyline></svg>
-          </button>
+
+
         </div>
 
-
-      </div>
-
-      <div class="hero-visual">
-        <div class="app-card">
-          <div class="app-header">
-            <div class="window-controls">
-              <span class="dot red"></span>
-              <span class="dot yellow"></span>
-              <span class="dot green"></span>
+        <div class="hero-visual">
+          <div class="app-card">
+            <div class="app-header">
+              <div class="window-controls">
+                <span class="dot red"></span>
+                <span class="dot yellow"></span>
+                <span class="dot green"></span>
+              </div>
+              <div class="address-bar">premium-connect.com/meeting</div>
             </div>
-            <div class="address-bar">premium-connect.com/meeting</div>
-          </div>
-          <div class="app-body">
-            <div class="participant-grid-preview">
-              <div class="preview-card p1"></div>
-              <div class="preview-card p2"></div>
-              <div class="preview-card p3"></div>
-              <div class="preview-card p4"></div>
-            </div>
-            <div class="controls-preview">
-              <div class="control-pill"></div>
-              <div class="control-pill"></div>
-              <div class="control-pill red"></div>
+            <div class="app-body">
+              <div class="participant-grid-preview">
+                <div class="preview-card p1"></div>
+                <div class="preview-card p2"></div>
+                <div class="preview-card p3"></div>
+                <div class="preview-card p4"></div>
+              </div>
+              <div class="controls-preview">
+                <div class="control-pill"></div>
+                <div class="control-pill"></div>
+                <div class="control-pill red"></div>
+              </div>
             </div>
           </div>
         </div>
       </div>
     </main>
-
-    <section class="features-section">
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="11" width="18" height="11" rx="2" ry="2"></rect><path d="M7 11V7a5 5 0 0 1 10 0v4"></path></svg>
-        </div>
-        <h3>Enterprise Security</h3>
-        <p>End-to-end encryption ensures your conversations remain private and secure.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><polygon points="13 2 3 14 12 14 11 22 21 10 12 10 13 2"></polygon></svg>
-        </div>
-        <h3>Lightning Fast</h3>
-        <p>Low latency architecture optimized for real-time communication globally.</p>
-      </div>
-      <div class="feature-card">
-        <div class="feature-icon">
-          <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"></circle><line x1="2" y1="12" x2="22" y2="12"></line><path d="M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z"></path></svg>
-        </div>
-        <h3>Global Scale</h3>
-        <p>Connect with anyone, anywhere, with servers distributed worldwide.</p>
-      </div>
-    </section>
   </div>
 </template>
 
@@ -148,7 +134,6 @@ const joinRoom = () => {
   overflow: hidden;
 }
 
-
 .bg-gradient-1 {
   position: absolute;
   top: -20%;
@@ -183,15 +168,11 @@ const joinRoom = () => {
 }
 
 
-.navbar {
+.header {
   position: sticky;
   top: 0;
   z-index: 100;
-  display: flex;
-  justify-content: space-between;
-  align-items: center;
   padding: 24px 48px;
-  max-width: 1400px;
   margin: 0 auto;
   background: rgba(9, 9, 11, 0.8);
   backdrop-filter: blur(10px);
@@ -201,6 +182,8 @@ const joinRoom = () => {
   display: flex;
   align-items: center;
   gap: 12px;
+  margin: 0 auto;
+  max-width: 98rem;
   font-weight: 700;
   font-size: 18px;
   letter-spacing: -0.5px;
@@ -288,13 +271,16 @@ const joinRoom = () => {
   background: var(--border-color);
 }
 
-
 .hero-section {
   position: relative;
   z-index: 10;
-  max-width: 1400px;
+  min-height: calc(100vh - 72px);
+  padding: 48px;
+}
+
+.container {
+  max-width: 98rem;
   margin: 0 auto;
-  padding: 80px 48px;
   display: grid;
   grid-template-columns: 1fr 1fr;
   gap: 64px;
@@ -351,7 +337,6 @@ const joinRoom = () => {
   border: 1px solid var(--border-color);
   padding: 24px;
   border-radius: 12px;
-  margin-bottom: 48px;
   max-width: 400px;
   box-shadow: 0 10px 30px rgba(0, 0, 0, 0.2);
 }
@@ -476,9 +461,17 @@ const joinRoom = () => {
   border-radius: 50%;
 }
 
-.dot.red { background: #ff5f56; }
-.dot.yellow { background: #ffbd2e; }
-.dot.green { background: #27c93f; }
+.dot.red {
+  background: #ff5f56;
+}
+
+.dot.yellow {
+  background: #ffbd2e;
+}
+
+.dot.green {
+  background: #27c93f;
+}
 
 .address-bar {
   background: #222;
@@ -526,10 +519,21 @@ const joinRoom = () => {
   border-radius: 50%;
 }
 
-.preview-card.p1 { background: #222; }
-.preview-card.p2 { background: #1e1e1e; }
-.preview-card.p3 { background: #252525; }
-.preview-card.p4 { background: #202020; }
+.preview-card.p1 {
+  background: #222;
+}
+
+.preview-card.p2 {
+  background: #1e1e1e;
+}
+
+.preview-card.p3 {
+  background: #252525;
+}
+
+.preview-card.p4 {
+  background: #202020;
+}
 
 .controls-preview {
   height: 40px;
@@ -550,55 +554,8 @@ const joinRoom = () => {
   border-radius: 50%;
 }
 
-.control-pill.red { background: #ef4444; }
-
-
-.features-section {
-  position: relative;
-  z-index: 10;
-  max-width: 1400px;
-  margin: 0 auto;
-  padding: 0 48px 80px;
-  display: grid;
-  grid-template-columns: repeat(3, 1fr);
-  gap: 32px;
-}
-
-.feature-card {
-  background: var(--color-bg-panel);
-  border: 1px solid var(--border-color);
-  padding: 32px;
-  border-radius: 12px;
-  transition: transform 0.2s;
-}
-
-.feature-card:hover {
-  transform: translateY(-5px);
-  border-color: var(--color-accent);
-}
-
-.feature-icon {
-  width: 48px;
-  height: 48px;
-  background: rgba(59, 130, 246, 0.1);
-  color: var(--color-accent);
-  border-radius: 12px;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  margin-bottom: 24px;
-}
-
-.feature-card h3 {
-  font-size: 18px;
-  font-weight: 600;
-  margin-bottom: 12px;
-}
-
-.feature-card p {
-  font-size: 14px;
-  color: var(--color-text-secondary);
-  line-height: 1.6;
+.control-pill.red {
+  background: #ef4444;
 }
 
 @media (max-width: 1024px) {
@@ -617,10 +574,6 @@ const joinRoom = () => {
 
   .stats-row {
     justify-content: center;
-  }
-
-  .features-section {
-    grid-template-columns: 1fr;
   }
 }
 </style>
