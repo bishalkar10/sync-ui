@@ -1,5 +1,5 @@
 <script setup lang="ts">
-import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { ref, onMounted, onUnmounted, computed, watch } from 'vue'
 import { useCallStore } from '@/stores/call'
 import { useRouter } from 'vue-router'
 import VideoCard from '@/components/VideoCard.vue'
@@ -14,10 +14,22 @@ const callStore = useCallStore()
 
 const userName = ref(history.state.userName || `user_${Math.floor(Math.random() * 1000)}`)
 const isSidebarLayout = ref(false)
+const showParticipantsModal = ref(false)
+const MAX_GRID_ITEMS = 6
 
 // --- Layout & View Logic ---
 const participants = computed(() => callStore.participantList)
 const participantCount = computed(() => participants.value.length)
+
+// --- Grid Limiting Logic ---
+const visibleParticipants = computed(() => {
+  if (isSidebarLayout.value) return participants.value // Sidebar handles its own filtering
+  if (participantCount.value <= MAX_GRID_ITEMS) return participants.value
+  return participants.value.slice(0, MAX_GRID_ITEMS - 1) // Show 5, leave 1 slot for "More" card
+})
+
+const hasOverflow = computed(() => !isSidebarLayout.value && participantCount.value > MAX_GRID_ITEMS)
+const overflowCount = computed(() => participantCount.value - (MAX_GRID_ITEMS - 1))
 
 // We designate an 'active speaker' to be prominently displayed when in sidebar layout.
 // Preference is given to remote participants; if alone, the local user is shown.
@@ -34,6 +46,17 @@ const otherParticipants = computed(() => {
 const toggleLayout = () => {
   isSidebarLayout.value = !isSidebarLayout.value
 }
+
+const toggleParticipantsModal = () => {
+  showParticipantsModal.value = !showParticipantsModal.value
+}
+
+// Auto-switch to sidebar layout when screen share starts
+watch(() => callStore.hasActiveScreenShare, (isSharing) => {
+  if (isSharing) {
+    isSidebarLayout.value = true
+  }
+})
 
 const handleEndCall = async () => {
   await callStore.disconnect()
@@ -89,8 +112,15 @@ onUnmounted(() => {
 
     <main class="main-content" :class="{ 'sidebar-layout': isSidebarLayout }">
       <div v-if="!isSidebarLayout" class="participants-grid" :class="{ 'large-grid': participantCount > 12 }">
-        <div v-for="p in participants" :key="p.sid" class="participant-wrapper">
+        <div v-for="p in visibleParticipants" :key="p.sid" class="participant-wrapper">
           <VideoCard :participant="p" />
+        </div>
+        <!-- Overflow Card -->
+        <div v-if="hasOverflow" class="participant-wrapper overflow-card" @click="toggleParticipantsModal">
+          <div class="overflow-content">
+            <span class="overflow-count">+{{ overflowCount }}</span>
+            <span class="overflow-label">participants</span>
+          </div>
         </div>
       </div>
 
@@ -175,6 +205,33 @@ onUnmounted(() => {
            </button> -->
       </div>
     </footer>
+
+    <!-- Participants Modal -->
+    <div v-if="showParticipantsModal" class="modal-overlay" @click.self="toggleParticipantsModal">
+      <div class="modal-content">
+        <div class="modal-header">
+          <h3>Participants ({{ participantCount }})</h3>
+          <button class="close-btn" @click="toggleParticipantsModal">
+            <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
+              stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+              <line x1="18" y1="6" x2="6" y2="18"></line>
+              <line x1="6" y1="6" x2="18" y2="18"></line>
+            </svg>
+          </button>
+        </div>
+        <div class="modal-body">
+          <div v-for="p in participants" :key="p.sid" class="modal-item">
+            <div class="modal-item-info">
+              <span class="user-avatar">{{ p.identity.charAt(0).toUpperCase() }}</span>
+              <span class="user-name">
+                {{ p.identity }}
+                <span v-if="p.sid === callStore.localParticipant?.sid" class="you-badge">(You)</span>
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -403,5 +460,143 @@ onUnmounted(() => {
   background-color: var(--color-danger);
   color: #fff;
 }
+
+
+
+/* Overflow Card Styles */
+.participant-wrapper.overflow-card {
+  background-color: var(--color-bg-dark);
+  border: 1px solid var(--border-color);
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: all 0.2s ease;
+}
+
+.participant-wrapper.overflow-card:hover {
+  background-color: var(--border-color);
+}
+
+.overflow-content {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 4px;
+}
+
+.overflow-count {
+  font-size: 32px;
+  font-weight: 700;
+  color: var(--color-text-primary);
+}
+
+.overflow-label {
+  font-size: 14px;
+  color: var(--color-text-secondary);
+}
+
+/* Modal Styles */
+.modal-overlay {
+  position: fixed;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  background: rgba(0, 0, 0, 0.7);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+  z-index: 1000;
+  backdrop-filter: blur(4px);
+}
+
+.modal-content {
+  background: var(--bg-surface);
+  border: 1px solid var(--border-color);
+  width: 100%;
+  max-width: 400px;
+  max-height: 80vh;
+  border-radius: 16px;
+  display: flex;
+  flex-direction: column;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.4);
+}
+
+.modal-header {
+  padding: 16px 20px;
+  border-bottom: 1px solid var(--border-color);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.modal-header h3 {
+  font-size: 18px;
+  font-weight: 600;
+  margin: 0;
+}
+
+.close-btn {
+  background: transparent;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+  padding: 4px;
+  border-radius: 4px;
+}
+
+.close-btn:hover {
+  color: var(--color-text-primary);
+  background: var(--border-color);
+}
+
+.modal-body {
+  padding: 16px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.modal-item {
+  display: flex;
+  align-items: center;
+  padding: 8px;
+  border-radius: 8px;
+  background: rgba(255, 255, 255, 0.03);
+}
+
+.modal-item-info {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.user-avatar {
+  width: 32px;
+  height: 32px;
+  background: var(--color-accent);
+  color: #fff;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 600;
+  font-size: 14px;
+}
+
+.user-name {
+  font-size: 14px;
+  font-weight: 500;
+}
+
+.you-badge {
+  color: var(--color-text-secondary);
+  font-size: 12px;
+  margin-left: 4px;
+}
+
 
 </style>

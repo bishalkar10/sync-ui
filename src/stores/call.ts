@@ -39,6 +39,10 @@ export const useCallStore = defineStore('call', () => {
     return Array.from(participants.value.values())
   })
 
+  const hasActiveScreenShare = computed(() => {
+    return participantList.value.some(p => p.isScreenShareEnabled)
+  })
+
   // --- Actions ---
 
   function updateParticipants() {
@@ -105,6 +109,8 @@ export const useCallStore = defineStore('call', () => {
         .on(RoomEvent.ParticipantConnected, handleParticipantConnected)
         .on(RoomEvent.ParticipantDisconnected, handleParticipantDisconnected)
         .on(RoomEvent.ActiveSpeakersChanged, handleActiveSpeakersChanged)
+        .on(RoomEvent.TrackPublished, updateParticipants)
+        .on(RoomEvent.TrackUnpublished, updateParticipants)
         .on(RoomEvent.Disconnected, handleRoomDisconnected)
         // Note: Track-specific events are handled within individual VideoCard components
         // to keep this store focused on room membership and global state.
@@ -158,6 +164,7 @@ export const useCallStore = defineStore('call', () => {
     participants,
     participantList,
     localParticipant,
+    hasActiveScreenShare,
     isCameraEnabled,
     isMicrophoneEnabled,
     isScreenShareEnabled,
