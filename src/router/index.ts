@@ -1,6 +1,6 @@
 import { createRouter, createWebHistory } from 'vue-router'
-import LandingPage from '@/components/LandingPage.vue'
-import CallPage from '@/components/CallPage.vue'
+import LandingPage from '@/views/LandingPage.vue'
+import CallPage from '@/views/CallPage.vue'
 
 const router = createRouter({
   history: createWebHistory(import.meta.env.BASE_URL),

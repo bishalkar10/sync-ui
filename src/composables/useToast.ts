@@ -1,3 +1,8 @@
+/**
+ * Global toast notification system.
+ * Uses a singleton state pattern to allow triggering notifications from 
+ * anywhere in the application without needing to inject components.
+ */
 import { ref, computed } from 'vue'
 
 export type ToastType = 'success' | 'error' | 'info' | 'warning'

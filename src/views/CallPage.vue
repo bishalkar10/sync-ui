@@ -1,8 +1,8 @@
 <script setup lang="ts">
 import { ref, onMounted, onUnmounted, computed } from 'vue'
-import { useVideoCall } from '@/composables/useVideoCall'
+import { useCallStore } from '@/stores/call'
 import { useRouter } from 'vue-router'
-import VideoCard from './VideoCard.vue'
+import VideoCard from '@/components/VideoCard.vue'
 import '@/assets/modern-theme.css'
 
 const props = defineProps<{
@@ -10,19 +10,20 @@ const props = defineProps<{
 }>()
 
 const router = useRouter()
-const videoCall = useVideoCall()
+const callStore = useCallStore()
 
 const userName = ref(history.state.userName || `user_${Math.floor(Math.random() * 1000)}`)
 const isSidebarLayout = ref(false)
-const participants = computed(() => {
-  return Array.from(videoCall.participants.value.values()).map(info => info.participant)
-})
 
+// --- Layout & View Logic ---
+const participants = computed(() => callStore.participantList)
 const participantCount = computed(() => participants.value.length)
 
+// We designate an 'active speaker' to be prominently displayed when in sidebar layout.
+// Preference is given to remote participants; if alone, the local user is shown.
 const activeSpeaker = computed(() => {
-  const remote = participants.value.find(p => p.sid !== videoCall.localParticipant.value?.sid)
-  return remote || videoCall.localParticipant.value
+  const remote = participants.value.find(p => p.sid !== callStore.localParticipant?.sid)
+  return remote || callStore.localParticipant
 })
 
 const otherParticipants = computed(() => {
@@ -35,14 +36,13 @@ const toggleLayout = () => {
 }
 
 const handleEndCall = async () => {
-  await videoCall.disconnectRoom()
+  await callStore.disconnect()
   router.push('/')
 }
 
 onMounted(() => {
-
   if (props.roomName && userName.value) {
-    videoCall.connectRoom(props.roomName, userName.value)
+    callStore.connect(props.roomName, userName.value)
   } else {
     console.error('Room name or User name is missing. Cannot connect.')
     router.push('/')
@@ -50,7 +50,7 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  videoCall.disconnectRoom()
+  callStore.disconnect()
 })
 </script>
 
@@ -116,9 +116,9 @@ onUnmounted(() => {
       </div>
 
       <div class="controls-group center">
-        <button class="control-btn" :class="{ 'danger': !videoCall.isMicrophoneEnabled.value }"
-          @click="videoCall.toggleMic()" title="Toggle Mic">
-          <svg v-if="videoCall.isMicrophoneEnabled.value" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+        <button class="control-btn" :class="{ 'danger': !callStore.isMicrophoneEnabled }"
+          @click="callStore.toggleMicrophone()" title="Toggle Mic">
+          <svg v-if="callStore.isMicrophoneEnabled" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round">
             <path d="M12 1a3 3 0 0 0-3 3v8a3 3 0 0 0 6 0V4a3 3 0 0 0-3-3z"></path>
@@ -135,9 +135,9 @@ onUnmounted(() => {
             <line x1="8" y1="23" x2="16" y2="23"></line>
           </svg>
         </button>
-        <button class="control-btn" :class="{ 'danger': !videoCall.isCameraEnabled.value }"
-          @click="videoCall.toggleCamera()" title="Toggle Camera">
-          <svg v-if="videoCall.isCameraEnabled.value" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
+        <button class="control-btn" :class="{ 'danger': !callStore.isCameraEnabled }"
+          @click="callStore.toggleCamera()" title="Toggle Camera">
+          <svg v-if="callStore.isCameraEnabled" xmlns="http://www.w3.org/2000/svg" width="24" height="24"
             viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"
             stroke-linejoin="round">
             <path d="M23 19a2 2 0 0 1-2 2H3a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h4l2-3h6l2 3h4a2 2 0 0 1 2 2z"></path>
@@ -151,8 +151,8 @@ onUnmounted(() => {
             </path>
           </svg>
         </button>
-        <button class="control-btn" :class="{ 'primary': videoCall.isScreenShareEnabled.value }"
-          @click="videoCall.toggleScreenShare()" title="Share Screen">
+        <button class="control-btn" :class="{ 'primary': callStore.isScreenShareEnabled }"
+          @click="callStore.toggleScreenShare()" title="Share Screen">
           <svg xmlns="http://www.w3.org/2000/svg" width="24" height="24" viewBox="0 0 24 24" fill="none"
             stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
             <path d="M13 3H4a2 2 0 0 0-2 2v10a2 2 0 0 0 2 2h16a2 2 0 0 0 2-2v-3"></path>

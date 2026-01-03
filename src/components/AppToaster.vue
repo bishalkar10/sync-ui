@@ -1,4 +1,8 @@
 <script setup lang="ts">
+/**
+ * Global notification component that renders active toasts from the useToast composable.
+ * Supports multiple positions and notification types (success, error, etc.)
+ */
 import { useToast } from '@/composables/useToast'
 
 const { toasts, dismiss } = useToast()

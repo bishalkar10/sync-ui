@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import Toaster from '@/components/Toaster.vue'
+import AppToaster from '@/components/AppToaster.vue'
 </script>
 
 <template>
-  <Toaster />
+  <AppToaster />
   <router-view></router-view>
 </template>
 

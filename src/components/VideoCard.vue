@@ -1,9 +1,9 @@
 <script setup lang="ts">
-import { type Participant, type Track, Track as LivekitTrack, ParticipantEvent, RoomEvent, createAudioAnalyser, type AudioAnalyserOptions, TrackPublication } from 'livekit-client'
-import { ref, onMounted, onUnmounted, watch, computed } from 'vue'
-import { useVideoCall } from '@/composables/useVideoCall'
+import { type Participant, type Track, Track as LivekitTrack, ParticipantEvent, createAudioAnalyser, type AudioAnalyserOptions, TrackPublication, type LocalAudioTrack, type RemoteAudioTrack } from 'livekit-client'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
+import { useCallStore } from '@/stores/call'
 
-const { localParticipant, isMicrophoneEnabled: isLocalMicrophoneEnabled, isCameraEnabled: isLocalCameraEnabled } = useVideoCall()
+const callStore = useCallStore()
 
 const props = defineProps<{
   participant: Participant
@@ -18,19 +18,19 @@ const remoteIsMicrophoneEnabled = ref(false)
 const audioLevel = ref(0)
 
 const isMine = computed(() => {
-  return props.participant.sid === localParticipant.value?.sid
+  return props.participant.sid === callStore.localParticipant?.sid
 })
 
 const isMicrophoneEnabled = computed(() => {
   if (isMine.value) {
-    return isLocalMicrophoneEnabled.value
+    return callStore.isMicrophoneEnabled
   }
   return remoteIsMicrophoneEnabled.value
 })
 
 const isCameraEnabled = computed(() => {
   if (isMine.value) {
-    return isLocalCameraEnabled.value
+    return callStore.isCameraEnabled
   }
   return remoteIsCameraEnabled.value
 })
@@ -39,13 +39,23 @@ let audioAnalyser: { calculateVolume: () => number; cleanup: () => void } | unde
 let animationFrameId: number
 
 const startAudioVisualizer = (track: Track) => {
-  if (track.kind !== LivekitTrack.Kind.Audio) return
+  // We ensure the track is an instance of LivekitTrack and definitively an Audio track.
+  // This narrowing is required for the audioAnalyser helper to function correctly.
+  if (!(track instanceof LivekitTrack) || track.kind !== LivekitTrack.Kind.Audio) {
+    return
+  }
+
+  // Custom type guard to convince TypeScript that the track has been correctly filtered.
+  const isAudioTrack = (t: Track): t is LocalAudioTrack | RemoteAudioTrack => {
+    return t.kind === LivekitTrack.Kind.Audio
+  }
+
+  if (!isAudioTrack(track)) return
 
   // Stop existing if any
   stopAudioVisualizer()
 
   const options: AudioAnalyserOptions = { smoothingTimeConstant: 0.8 }
-  // @ts-ignore - Types might mismatch slightly depending on version, but this is the helper signature
   audioAnalyser = createAudioAnalyser(track, options)
 
   const updateVolume = () => {
@@ -81,35 +91,22 @@ function detachTrack(track: Track | null | undefined, el: HTMLMediaElement | nul
   }
 }
 
-interface TrackEventDetail {
-  track: Track
-  participantSid: string
-}
-
-const handleAttachTrackEvent = (event: Event) => {
-  const customEvent = event as CustomEvent<TrackEventDetail>
-  const { track, participantSid } = customEvent.detail
-
-  if (participantSid !== props.participant.sid) return
-
+const handleTrackSubscribed = (track: Track) => {
   if (track.kind === LivekitTrack.Kind.Video) {
     attachTrack(track, videoElement.value)
     remoteIsCameraEnabled.value = true
-  } else if (track.kind === LivekitTrack.Kind.Audio) {
-    if (!previousIsMine.value) { // Only attach audio for remote participants to avoid echo
-       attachTrack(track, audioElement.value)
+  } else if (track instanceof LivekitTrack && track.kind === LivekitTrack.Kind.Audio) {
+    // We only attach audio tracks for remote participants to prevent local echo. 
+    // The AudioAnalyser however is run for everyone to show visual feedback.
+    if (!previousIsMine.value) {
+      attachTrack(track, audioElement.value)
     }
     remoteIsMicrophoneEnabled.value = true
     startAudioVisualizer(track)
   }
 }
 
-const handleDetachTrackEvent = (event: Event) => {
-  const customEvent = event as CustomEvent<TrackEventDetail>
-  const { track, participantSid } = customEvent.detail
-
-  if (participantSid !== props.participant.sid) return
-
+const handleTrackUnsubscribed = (track: Track) => {
   if (track.kind === LivekitTrack.Kind.Video) {
     detachTrack(track, videoElement.value)
     remoteIsCameraEnabled.value = false
@@ -147,46 +144,57 @@ const updateState = () => {
   audioLevel.value = props.participant.audioLevel
 }
 
-// Needed to avoid echo for local participant - we check this in handleAttach, 
-// but we need it reactive because 'isMine' is computed.
-const previousIsMine = ref(false) 
+// Track the initial 'isMine' state to handle logic that depends on whether 
+// the participant was local when the component was first mounted.
+const previousIsMine = ref(false)
 
-onMounted(() => {
-  previousIsMine.value = isMine.value
-  updateState() 
+function setupTrackListeners() {
+  // Iterate existing tracks
+  const pubs = Array.from(props.participant.trackPublications.values())
+  pubs.forEach(pub => {
+    if (pub.track) {
+      handleTrackSubscribed(pub.track)
+    }
+  })
 
-  window.addEventListener('livekit-attach-track', handleAttachTrackEvent)
-  window.addEventListener('livekit-detach-track', handleDetachTrackEvent)
-  
-  // Listen to participant events directly
+  // Listen for future tracks
+  props.participant.on(ParticipantEvent.TrackSubscribed, handleTrackSubscribed)
+  props.participant.on(ParticipantEvent.TrackUnsubscribed, handleTrackUnsubscribed)
+
   props.participant
     .on(ParticipantEvent.TrackMuted, onTrackMuted)
     .on(ParticipantEvent.TrackUnmuted, onTrackUnmuted)
     .on(ParticipantEvent.IsSpeakingChanged, onIsSpeakingChanged)
 
+  // Handle Local Track Publication if this is local participant
+  if (isMine.value) {
+    props.participant.on(ParticipantEvent.LocalTrackPublished, (pub) => {
+      if (pub.track) handleTrackSubscribed(pub.track)
+    })
+    props.participant.on(ParticipantEvent.LocalTrackUnpublished, (pub) => {
+      if (pub.track) handleTrackUnsubscribed(pub.track)
+    })
+  }
+}
 
-  props.participant.trackPublications.forEach((pub) => {
-    if (pub.track) {
-      if (pub.track.kind === LivekitTrack.Kind.Audio) {
-        startAudioVisualizer(pub.track)
-      }
-      handleAttachTrackEvent(
-        new CustomEvent('livekit-attach-track', {
-          detail: { track: pub.track, participantSid: props.participant.sid },
-        }),
-      )
-    }
-  })
+onMounted(() => {
+  previousIsMine.value = isMine.value
+  updateState()
+  setupTrackListeners()
 })
 
 onUnmounted(() => {
-  window.removeEventListener('livekit-attach-track', handleAttachTrackEvent)
-  window.removeEventListener('livekit-detach-track', handleDetachTrackEvent)
-  
-  stopAudioVisualizer()
-  props.participant.removeAllListeners()
+  props.participant.off(ParticipantEvent.TrackSubscribed, handleTrackSubscribed)
+  props.participant.off(ParticipantEvent.TrackUnsubscribed, handleTrackUnsubscribed)
+  props.participant.off(ParticipantEvent.TrackMuted, onTrackMuted)
+  props.participant.off(ParticipantEvent.TrackUnmuted, onTrackUnmuted)
+  props.participant.off(ParticipantEvent.IsSpeakingChanged, onIsSpeakingChanged)
 
-  props.participant.trackPublications.forEach((pub) => {
+  stopAudioVisualizer()
+
+  // Detach all
+  const pubs = Array.from(props.participant.trackPublications.values())
+  pubs.forEach(pub => {
     if (pub.track) {
       if (pub.track.kind === LivekitTrack.Kind.Video) {
         detachTrack(pub.track, videoElement.value)
@@ -211,8 +219,19 @@ onUnmounted(() => {
     <div class="participant-name">{{ participant.identity }}</div>
 
     <div class="mic-status" :class="{ 'muted': !isMicrophoneEnabled }">
-      <svg v-if="!isMicrophoneEnabled" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><line x1="1" y1="1" x2="23" y2="23"></line><path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path><path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path><line x1="12" y1="19" x2="12" y2="23"></line><line x1="8" y1="23" x2="16" y2="23"></line></svg>
-      <div v-else class="audio-bars"><div class="bar"></div><div class="bar"></div><div class="bar"></div></div>
+      <svg v-if="!isMicrophoneEnabled" xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24"
+        fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+        <line x1="1" y1="1" x2="23" y2="23"></line>
+        <path d="M9 9v3a3 3 0 0 0 5.12 2.12M15 9.34V4a3 3 0 0 0-5.94-.6"></path>
+        <path d="M17 16.95A7 7 0 0 1 5 12v-2m14 0v2a7 7 0 0 1-.11 1.23"></path>
+        <line x1="12" y1="19" x2="12" y2="23"></line>
+        <line x1="8" y1="23" x2="16" y2="23"></line>
+      </svg>
+      <div v-else class="audio-bars">
+        <div class="bar"></div>
+        <div class="bar"></div>
+        <div class="bar"></div>
+      </div>
     </div>
   </div>
 </template>
@@ -273,7 +292,7 @@ onUnmounted(() => {
   font-size: 13px;
   font-weight: 500;
   color: white;
-  text-shadow: 0 1px 2px rgba(0,0,0,0.5);
+  text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
   z-index: 2;
 }
 
@@ -309,12 +328,30 @@ onUnmounted(() => {
   animation: bounce 1s infinite ease-in-out;
 }
 
-.bar:nth-child(1) { height: 6px; animation-delay: 0s; }
-.bar:nth-child(2) { height: 12px; animation-delay: 0.1s; }
-.bar:nth-child(3) { height: 8px; animation-delay: 0.2s; }
+.bar:nth-child(1) {
+  height: 6px;
+  animation-delay: 0s;
+}
+
+.bar:nth-child(2) {
+  height: 12px;
+  animation-delay: 0.1s;
+}
+
+.bar:nth-child(3) {
+  height: 8px;
+  animation-delay: 0.2s;
+}
 
 @keyframes bounce {
-  0%, 100% { transform: scaleY(0.5); }
-  50% { transform: scaleY(1); }
+
+  0%,
+  100% {
+    transform: scaleY(0.5);
+  }
+
+  50% {
+    transform: scaleY(1);
+  }
 }
 </style>
