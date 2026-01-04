@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { ref, computed, shallowRef } from 'vue'
+import { useToast } from '@/composables/useToast'
 import {
   Room,
   RoomEvent,
@@ -139,23 +140,57 @@ export const useCallStore = defineStore('call', () => {
   // Device Toggles
   async function toggleCamera(enable?: boolean) {
     if (!room.value?.localParticipant) return
-    const newState = enable ?? !isCameraEnabled.value
-    await room.value.localParticipant.setCameraEnabled(newState)
-    isCameraEnabled.value = newState
+    const { toast } = useToast()
+    
+    try {
+      const newState = enable ?? !isCameraEnabled.value
+      await room.value.localParticipant.setCameraEnabled(newState)
+      isCameraEnabled.value = newState
+    } catch (error: any) {
+      console.error('Error toggling camera:', error)
+      if (error.name === 'NotAllowedError' || error.message?.includes('Permission denied')) {
+        toast.error('Camera permission denied. Please allow access in your browser settings.')
+      } else {
+        toast.error(`Failed to toggle camera: ${error.message || 'Unknown error'}`)
+      }
+      // Revert state if needed, though here we only update state on success
+    }
   }
 
   async function toggleMicrophone(enable?: boolean) {
     if (!room.value?.localParticipant) return
-    const newState = enable ?? !isMicrophoneEnabled.value
-    await room.value.localParticipant.setMicrophoneEnabled(newState)
-    isMicrophoneEnabled.value = newState
+    const { toast } = useToast()
+
+    try {
+      const newState = enable ?? !isMicrophoneEnabled.value
+      await room.value.localParticipant.setMicrophoneEnabled(newState)
+      isMicrophoneEnabled.value = newState
+    } catch (error: any) {
+      console.error('Error toggling microphone:', error)
+      if (error.name === 'NotAllowedError' || error.message?.includes('Permission denied')) {
+        toast.error('Microphone permission denied. Please allow access in your browser settings.')
+      } else {
+        toast.error(`Failed to toggle microphone: ${error.message || 'Unknown error'}`)
+      }
+    }
   }
 
   async function toggleScreenShare(enable?: boolean) {
     if (!room.value?.localParticipant) return
-    const newState = enable ?? !isScreenShareEnabled.value
-    await room.value.localParticipant.setScreenShareEnabled(newState)
-    isScreenShareEnabled.value = newState
+    const { toast } = useToast()
+
+    try {
+      const newState = enable ?? !isScreenShareEnabled.value
+      await room.value.localParticipant.setScreenShareEnabled(newState)
+      isScreenShareEnabled.value = newState
+    } catch (error: any) {
+      console.error('Error toggling screen share:', error)
+      if (error.name === 'NotAllowedError' || error.message?.includes('Permission denied')) {
+        toast.error('Screen sharing permission denied.')
+      } else {
+        toast.error(`Failed to toggle screen share: ${error.message || 'Unknown error'}`)
+      }
+    }
   }
 
   return {
