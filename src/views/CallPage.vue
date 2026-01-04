@@ -4,6 +4,7 @@ import { useCallStore } from '@/stores/call'
 import { useRouter } from 'vue-router'
 import VideoCard from '@/components/VideoCard.vue'
 import '@/assets/modern-theme.css'
+import { Participant } from 'livekit-client'
 
 const props = defineProps<{
   roomName: string
@@ -34,6 +35,15 @@ const overflowCount = computed(() => participantCount.value - (MAX_GRID_ITEMS - 
 // We designate an 'active speaker' to be prominently displayed when in sidebar layout.
 // Preference is given to remote participants; if alone, the local user is shown.
 const activeSpeaker = computed(() => {
+  // Priority 1: Screen Share
+  const screenSharer = participants.value.find(p => p.isScreenShareEnabled)
+  if (screenSharer) return screenSharer
+
+  // Priority 2: Active Speaker
+  const speaker = participants.value.find(p => p.isSpeaking)
+  if (speaker) return speaker
+  
+  // Priority 3: Fallback (First remote or local)
   const remote = participants.value.find(p => p.sid !== callStore.localParticipant?.sid)
   return remote || callStore.localParticipant
 })
