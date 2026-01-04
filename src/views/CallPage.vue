@@ -38,9 +38,28 @@ const activeSpeaker = computed(() => {
   return remote || callStore.localParticipant
 })
 
-const otherParticipants = computed(() => {
-  if (!activeSpeaker.value) return participants.value
-  return participants.value.filter(p => p.sid !== activeSpeaker.value?.sid)
+const sidebarDisplayParticipants = computed(() => {
+  let others = participants.value
+  if (activeSpeaker.value) {
+    others = participants.value.filter(p => p.sid !== activeSpeaker.value?.sid)
+  }
+  // If we have more than 3 items, show 2 items + overflow card (total 3 slots).
+  // Otherwise show up to 3 items (total <= 3 slots).
+  if (others.length > 3) {
+    return others.slice(0, 2)
+  }
+  return others
+})
+
+const sidebarOverflowCount = computed(() => {
+  const totalOthers = activeSpeaker.value 
+    ? participants.value.length - 1 
+    : participants.value.length
+  
+  if (totalOthers > 3) {
+    return totalOthers - 2
+  }
+  return 0
 })
 
 const toggleLayout = () => {
@@ -111,12 +130,13 @@ onUnmounted(() => {
     </header>
 
     <main class="main-content" :class="{ 'sidebar-layout': isSidebarLayout }">
-      <div v-if="!isSidebarLayout" class="participants-grid" :class="{ 'large-grid': participantCount > 12 }">
-        <div v-for="p in visibleParticipants" :key="p.sid" class="participant-wrapper">
-          <VideoCard :participant="p" />
-        </div>
+      <div v-if="!isSidebarLayout" class="participants-grid" :class="{
+        'large-grid': participantCount > 12,
+        ['count-' + (visibleParticipants.length + (hasOverflow ? 1 : 0))]: true
+      }">
+        <VideoCard v-for="p in visibleParticipants" :key="p.sid" :participant="p" />
         <!-- Overflow Card -->
-        <div v-if="hasOverflow" class="participant-wrapper overflow-card" @click="toggleParticipantsModal">
+        <div v-if="hasOverflow" class="overflow-card" @click="toggleParticipantsModal">
           <div class="overflow-content">
             <span class="overflow-count">+{{ overflowCount }}</span>
             <span class="overflow-label">participants</span>
@@ -126,13 +146,16 @@ onUnmounted(() => {
 
       <template v-else>
         <div class="stage-area">
-          <div v-if="activeSpeaker" class="participant-wrapper active-speaker">
-            <VideoCard :participant="activeSpeaker" />
-          </div>
+          <VideoCard v-if="activeSpeaker" :participant="activeSpeaker" class="active-speaker" />
         </div>
-        <div class="sidebar-strip">
-          <div v-for="p in otherParticipants" :key="p.sid" class="participant-wrapper small">
-            <VideoCard :participant="p" />
+        <div class="sidebar-strip hide-scrollbar">
+          <VideoCard v-for="p in sidebarDisplayParticipants" :key="p.sid" :participant="p" class="small" />
+          <!-- Sidebar Overflow Card -->
+          <div v-if="sidebarOverflowCount > 0" class="overflow-card small" @click="toggleParticipantsModal">
+            <div class="overflow-content">
+              <span class="overflow-count">+{{ sidebarOverflowCount }}</span>
+              <span class="overflow-label">more</span>
+            </div>
           </div>
         </div>
       </template>
@@ -228,7 +251,7 @@ onUnmounted(() => {
             </svg>
           </button>
         </div>
-        <div class="modal-body">
+        <div class="modal-body hide-scrollbar">
           <div v-for="p in participants" :key="p.sid" class="modal-item">
             <div class="modal-item-info">
               <span class="user-avatar">{{ p.identity.charAt(0).toUpperCase() }}</span>
@@ -247,7 +270,7 @@ onUnmounted(() => {
 <style scoped>
 .call-container {
   width: 100vw;
-  height: 100vh;
+  height: 100dvh;
   background-color: var(--bg-app);
   color: var(--color-text-primary);
   display: flex;
@@ -358,25 +381,81 @@ onUnmounted(() => {
 
 .participants-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+  width: 100%;
+  height: 100%;
   gap: var(--spacing-md);
-  width: 100%;
-  height: 100%;
-  overflow-y: auto;
   padding-right: 4px;
+  overflow-y: auto;
+  /* Default Desktop: Max 3 columns (Strict) */
+  grid-template-columns: repeat(3, 1fr);
+  grid-auto-rows: minmax(200px, 1fr);
 }
 
-.participants-grid.large-grid {
-  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-  grid-auto-rows: 150px;
+/* Explicit Desktop Layouts based on Count */
+@media (min-width: 769px) {
+  .participants-grid.count-1 {
+    grid-template-columns: 1fr;
+  }
+
+  .participants-grid.count-2 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  .participants-grid.count-3 {
+    grid-template-columns: 1fr 1fr 1fr;
+  }
+
+  /* 4 Items -> 2x2 Grid (Balanced) */
+  .participants-grid.count-4 {
+    grid-template-columns: 1fr 1fr;
+  }
+
+  /* 5 & 6 Items -> 3 Columns */
+  .participants-grid.count-5,
+  .participants-grid.count-6 {
+    grid-template-columns: repeat(3, 1fr);
+  }
 }
 
-.participant-wrapper {
-  width: 100%;
-  height: 100%;
-  min-height: 200px;
-}
+/* Mobile Grid Optimization (WhatsApp-style) */
+@media (max-width: 768px) {
+  .participants-grid {
+    display: grid;
+    height: 100%;
+    /* Default to 1 column for 1-2 participants */
+    grid-template-columns: 1fr;
+    grid-auto-rows: minmax(0, 1fr);
+    gap: 8px;
+    padding-right: 0;
+    overflow-y: hidden;
+    /* Try to fit on screen */
+  }
 
+  /* 3 or more items: Switch to 2 columns */
+  .participants-grid.count-3,
+  .participants-grid.count-4,
+  .participants-grid.count-5,
+  .participants-grid.count-6 {
+    grid-template-columns: 1fr 1fr;
+    grid-template-rows: repeat(2, 1fr);
+    /* Force 2 rows usually? */
+    grid-auto-rows: minmax(0, 1fr);
+  }
+
+  /* Specific tweak for 3 items to look nice:
+     Item 3 spans full width? Or just let it be 50%? 
+     Let's try to make the last item span 2 cols if it's the 3rd item in a 3-item grid.
+  */
+  .participants-grid.count-3 :last-child {
+    grid-column: span 2;
+  }
+
+  /* Handle 5 and 6 items: 3 rows of 2 cols */
+  .participants-grid.count-5,
+  .participants-grid.count-6 {
+    grid-template-rows: repeat(3, 1fr);
+  }
+}
 
 .stage-area {
   flex: 1;
@@ -385,28 +464,58 @@ onUnmounted(() => {
 }
 
 .sidebar-strip {
-  width: 240px;
+  width: 360px;
   height: 100%;
   overflow-y: auto;
-  display: flex;
-  flex-direction: column;
-  gap: 8px;
+  display: grid;
+  grid-template-rows: repeat(3, 1fr);
+  gap: 1rem;
   padding-right: 4px;
 }
 
-.participant-wrapper.active-speaker {
+.active-speaker {
   width: 100%;
   height: 100%;
   border: 2px solid var(--color-accent);
   border-radius: 12px;
 }
 
-.participant-wrapper.small {
-  height: 140px;
-  flex-shrink: 0;
-  min-height: 140px;
+.sidebar-strip .participant-card.small {
+  flex: 1;
+  min-height: 0;
 }
 
+
+/* Sidebar Layout Mobile Optimization */
+@media (max-width: 768px) {
+  .main-content.sidebar-layout {
+    flex-direction: column;
+  }
+
+  .main-content.sidebar-layout .stage-area {
+    flex: 1;
+    height: auto;
+  }
+
+  .main-content.sidebar-layout .sidebar-strip {
+    width: 100%;
+    height: 150px;
+    display: flex;
+    gap: 8px;
+    /* Fixed height for the strip */
+    flex-direction: row;
+    /* Horizontal layout */
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding-right: 0;
+    padding-bottom: 4px;
+    flex-shrink: 0;
+  }
+
+  .main-content.sidebar-layout .participant-card.small, .overflow-card.small {
+    flex: 0 0 calc(50% - 8px);
+  }
+}
 
 .controls-bar {
   height: 80px;
@@ -473,7 +582,7 @@ onUnmounted(() => {
 
 
 /* Overflow Card Styles */
-.participant-wrapper.overflow-card {
+.overflow-card {
   background-color: var(--color-bg-dark);
   border: 1px solid var(--border-color);
   border-radius: 12px;
@@ -484,7 +593,7 @@ onUnmounted(() => {
   transition: all 0.2s ease;
 }
 
-.participant-wrapper.overflow-card:hover {
+.overflow-card:hover {
   background-color: var(--border-color);
 }
 

@@ -124,7 +124,7 @@ const joinRoom = () => {
 
 <style scoped>
 .landing-container {
-  min-height: 100vh;
+  min-height: 100dvh;
   background-color: var(--color-bg-dark);
   color: var(--color-text-primary);
   font-family: var(--font-family);
@@ -272,7 +272,7 @@ const joinRoom = () => {
 .hero-section {
   position: relative;
   z-index: 10;
-  min-height: calc(100vh - 72px);
+  min-height: calc(100dvh - 72px);
   padding: 48px;
 }
 

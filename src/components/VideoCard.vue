@@ -250,7 +250,6 @@ onUnmounted(() => {
   transition: border-color 0.2s;
   width: 100%;
   height: 100%;
-  min-height: 200px;
 }
 
 .participant-card.speaking {

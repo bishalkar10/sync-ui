@@ -4,20 +4,11 @@
   padding: 0;
 }
 
-html {
-
-  overflow-x: hidden;
-  background-color: #09090b;
+.hide-scrollbar {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
-body {
-  min-height: 100vh;
-  margin: 0;
-  background-color: #09090b;
-
-}
-
-#app {
-  display: flex;
-  flex-direction: column;
+.hide-scrollbar::-webkit-scrollbar {
+  display: none;
 }
