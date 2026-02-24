@@ -1,5 +1,5 @@
 import { defineStore } from 'pinia'
-import { ref, computed, shallowRef } from 'vue'
+import { ref, computed, shallowRef, triggerRef } from 'vue'
 import { useToast } from '@/composables/useToast'
 import {
   Room,
@@ -44,12 +44,17 @@ export const useCallStore = defineStore('call', () => {
     return participantList.value.some(p => p.isScreenShareEnabled)
   })
 
+  // getDisplayMedia is not supported in mobile browsers.
+  const isScreenShareSupported = computed(() => {
+    return !!(navigator.mediaDevices && navigator.mediaDevices.getDisplayMedia)
+  })
+
   // --- Actions ---
 
   function updateParticipants() {
-    // We re-assign the Map to a new instance to trigger Vue's reactivity system
-    // since shallowRef only tracks the identity of the object itself.
-    participants.value = new Map(participants.value)
+    // triggerRef is efficient (O(1)) and notifies Vue watchers that the Map has mutated.
+    // This avoids the O(N) cost of cloning the Map on every event.
+    triggerRef(participants)
   }
 
   function handleParticipantConnected(participant: Participant) {
@@ -181,11 +186,19 @@ export const useCallStore = defineStore('call', () => {
 
     try {
       const newState = enable ?? !isScreenShareEnabled.value
+
+      if (newState && !isScreenShareSupported.value) {
+        throw new Error('NOT_SUPPORTED')
+      }
+
       await room.value.localParticipant.setScreenShareEnabled(newState)
       isScreenShareEnabled.value = newState
     } catch (error: any) {
       console.error('Error toggling screen share:', error)
-      if (error.name === 'NotAllowedError' || error.message?.includes('Permission denied')) {
+      
+      if (error.message === 'NOT_SUPPORTED') {
+        toast.error('Screen sharing is not supported on mobile devices. Please use a desktop browser.')
+      } else if (error.name === 'NotAllowedError' || error.message?.includes('Permission denied')) {
         toast.error('Screen sharing permission denied.')
       } else {
         toast.error(`Failed to toggle screen share: ${error.message || 'Unknown error'}`)
@@ -203,6 +216,7 @@ export const useCallStore = defineStore('call', () => {
     isCameraEnabled,
     isMicrophoneEnabled,
     isScreenShareEnabled,
+    isScreenShareSupported,
     connect,
     disconnect,
     toggleCamera,

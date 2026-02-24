@@ -211,7 +211,8 @@ onUnmounted(() => {
           </svg>
         </button>
 
-        <button class="control-btn" :class="{ 'danger': !callStore.isScreenShareEnabled }"
+        <button v-if="callStore.isScreenShareSupported" class="control-btn"
+          :class="{ 'danger': !callStore.isScreenShareEnabled }"
           @click="callStore.toggleScreenShare()" title="Share Screen">
           <svg v-if="callStore.isScreenShareEnabled" width="24" height="24" viewBox="0 0 24 24" fill="none"
             xmlns="http://www.w3.org/2000/svg">
